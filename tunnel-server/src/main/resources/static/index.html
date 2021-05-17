@@ -47,20 +47,42 @@
                     <a class="nav-link" href="https://arthas.aliyun.com/doc" target="_blank">Documentation
                         <span class="sr-only">(current)</span></a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="https://arthas.aliyun.com/doc/arthas-tutorials.html" target="_blank">Online Tutorials</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="https://github.com/alibaba/arthas" target="_blank">Github</a>
-                </li>
+<!--                <li class="nav-item">-->
+<!--                    <a class="nav-link" href="https://arthas.aliyun.com/doc/arthas-tutorials.html" target="_blank">Online Tutorials</a>-->
+<!--                </li>-->
+<!--                <li class="nav-item">-->
+<!--                    <a class="nav-link" href="https://github.com/alibaba/arthas" target="_blank">Github</a>-->
+<!--                </li>-->
             </ul>
         </div>
 
         <form class="form-inline my-2 my-lg-0">
+
+
             <div class="col">
                 <div class="input-group ">
                     <div class="input-group-prepend">
-                        <span class="input-group-text" id="ip-addon">IP</span>
+                        <span class="input-group-text" id="host-addon">Host</span>
+                    </div>
+                    <input value="10.200.8.246" v-model="host" type="text" class="form-control" name="host" id="host"
+                           placeholder="please enter host" aria-label="host" aria-describedby="host-addon">
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="input-group ">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="appName-addon">appNm</span>
+                    </div>
+                    <input value="push-server" v-model="appName" type="text" class="form-control" name="appName" id="appName"
+                           placeholder="please enter appName" aria-label="appName" aria-describedby="appName-addon">
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="input-group ">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="ip-addon">agentIP</span>
                     </div>
                     <input value="127.0.0.1" v-model="ip" type="text" class="form-control" name="ip" id="ip"
                         placeholder="please enter ip address" aria-label="ip" aria-describedby="ip-addon">
@@ -74,16 +96,6 @@
                     </div>
                     <input value="7777" v-model="port" type="text" class="form-control" name="port" id="port"
                         placeholder="please enter port" aria-label="port" aria-describedby="port-addon">
-                </div>
-            </div>
-
-            <div class="col">
-                <div class="input-group ">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text" id="agentId-addon">AgentId</span>
-                    </div>
-                    <input value="" v-model="agentId" type="text" class="form-control" name="agentId" id="agentId"
-                        placeholder="please enter agentId" aria-label="agentId" aria-describedby="agentId-addon">
                 </div>
             </div>
 

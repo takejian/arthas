@@ -1,29 +1,10 @@
 
 package com.alibaba.arthas.tunnel.server;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLDecoder;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.tomcat.util.codec.binary.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.util.UriComponentsBuilder;
-
 import com.alibaba.arthas.tunnel.common.MethodConstants;
 import com.alibaba.arthas.tunnel.common.SimpleHttpResponse;
 import com.alibaba.arthas.tunnel.common.URIConstans;
 import com.alibaba.arthas.tunnel.server.utils.HttpUtils;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -33,11 +14,18 @@ import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler.HandshakeComplete;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.FutureListener;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.GlobalEventExecutor;
-import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.*;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.tomcat.util.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 
@@ -118,10 +106,73 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
         }
     }
 
+
+    private String autoInstallArthas(String host, String appName){
+
+        StringBuffer cmdStr = new StringBuffer();
+        cmdStr.append("#!/bin/bash\n"
+                + "ssh -tt ").append("shijian@").append(host).append(" << eeooff\n" +
+                "if [ ! -f \"arthas-boot.jar\" ];then\n" +
+                "  curl -O https://arthas.aliyun.com/arthas-boot.jar\n" +
+                "fi\n").
+                append("PID=\\$(ps -ef|grep ").append(appName).append(".jar |grep -v grep | awk '{print \\$2}')\n").
+                append("PORT=\\$(sudo lsof -i tcp:8563|grep -v COMMAND | awk '{print \\$2}')\n").
+                append("if [ \"\\$PID\" != \"\\$PORT\" ];then\n" +
+                "  sudo java -jar /root/.arthas/lib/3.5.0/arthas/arthas-client.jar -c shutdown\n").
+                append("  sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.220.222:7777/ws' --attach-only \\$PID\n").
+                append("fi\n").
+//                append("  ps -ef|grep ").append(appName).append(".jar |grep -v grep | awk '{print \\$2}'|xargs -r sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.220.222:7777/ws' --attach-only\n").
+                append("exit\n").append("eeooff\n").append("echo done!\n");
+        //是否需要重复杀死进程
+        File file = new File("/tmp/link.sh");
+        try {
+            file.delete();
+            file.createNewFile();
+            FileWriter fw = new FileWriter(file,true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            bw.write(cmdStr.toString());
+            bw.close();
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        String cmd = "sh /tmp/link.sh";
+        BufferedReader br = null;
+        try {
+            Process p = Runtime.getRuntime().exec(cmd);
+            br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+//            StringBuilder sb = new StringBuilder();
+//            String line = null;
+//            while ((line = br.readLine()) != null) {
+//                sb.append(line);
+//            }
+//            System.out.println("sb:" + sb.toString());
+            return br.readLine().toString();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+//            throw new Exception(ExceptionConstants.SYSTEM_EXCEPTION, "test 失败");
+        }
+        return null;
+    }
+
     private void connectArthas(ChannelHandlerContext tunnelSocketCtx, MultiValueMap<String, String> parameters)
             throws URISyntaxException {
 
-        List<String> agentId = parameters.getOrDefault("id", Collections.emptyList());
+        List<String> appName = parameters.getOrDefault("appName", Collections.emptyList());
+        List<String> agentId = parameters.getOrDefault("host", Collections.emptyList());
+
+        // ssh目标服务器，然后启动arthas进程并绑定appName
+        String rsp = autoInstallArthas(agentId.get(0), appName.get(0));
+        if(rsp == null){
+            logger.error("arthas autoinstall fail");
+            throw new IllegalArgumentException("arthas autoinstall fail");
+        }
+        try{
+            Thread.sleep(20000);
+        }catch (Exception e){
+            logger.error("Thread.sleep Error");
+        }
 
         if (agentId.isEmpty()) {
             logger.error("arthas agent id can not be null, parameters: {}", parameters);
@@ -133,6 +184,10 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
         Optional<AgentInfo> findAgent = tunnelServer.findAgent(agentId.get(0));
 
         if (findAgent.isPresent()) {
+
+            agentId = new ArrayList<String>();
+            agentId.add(findAgent.get().getAgentId());
+
             ChannelHandlerContext agentCtx = findAgent.get().getChannelHandlerContext();
 
             String clientConnectionId = RandomStringUtils.random(20, true, true).toUpperCase();
@@ -170,8 +225,8 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
                         outboundChannel.pipeline().addLast(new RelayHandler(tunnelSocketCtx.channel()));
                         tunnelSocketCtx.pipeline().addLast(new RelayHandler(outboundChannel));
                     } else {
-                        logger.error("wait for agent connect error. agentId: {}, clientConnectionId: {}", agentId,
-                                clientConnectionId);
+//                        logger.error("wait for agent connect error. agentId: {}, clientConnectionId: {}", agentId,
+//                                clientConnectionId);
                         ChannelUtils.closeOnFlush(agentCtx.channel());
                     }
                 }
@@ -269,8 +324,9 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
         if (arthasVersion != null) {
             info.setArthasVersion(arthasVersion);
         }
-
-        tunnelServer.addAgent(id, info);
+        info.setAgentId(id);
+//        tunnelServer.addAgent(id, info);
+        tunnelServer.addAgent(info.getHost(), info);
         ctx.channel().closeFuture().addListener(new GenericFutureListener<Future<? super Void>>() {
             @Override
             public void operationComplete(Future<? super Void> future) throws Exception {

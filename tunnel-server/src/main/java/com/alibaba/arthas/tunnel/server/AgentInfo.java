@@ -17,6 +17,17 @@ public class AgentInfo {
     private int port;
     private String arthasVersion;
 
+    public String getAgentId() {
+        return agentId;
+    }
+
+    public void setAgentId(String agentId) {
+        this.agentId = agentId;
+    }
+
+    private String agentId;
+
+
     public ChannelHandlerContext getChannelHandlerContext() {
         return channelHandlerContext;
     }

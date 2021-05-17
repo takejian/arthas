@@ -5,7 +5,8 @@ $(function () {
     var url = window.location.href;
     var ip = getUrlParam('ip');
     var port = getUrlParam('port');
-    var agentId = getUrlParam('agentId');
+    var host = getUrlParam('host');
+    var appName = getUrlParam('appName');
 
     if (ip != '' && ip != null) {
         $('#ip').val(ip);
@@ -15,8 +16,11 @@ $(function () {
     if (port != '' && port != null) {
         $('#port').val(port);
     }
-    if (agentId != '' && agentId != null) {
-        $('#agentId').val(agentId);
+    if (host != '' && host != null) {
+        $('#host').val(host);
+    }
+    if (appName != '' && appName != null) {
+        $('#appName').val(appName);
     }
 
     startConnect(true);
@@ -77,9 +81,9 @@ function getTerminalSize () {
 }
 
 /** init websocket **/
-function initWs (ip, port, path, agentId, targetServer) {
+function initWs (ip, port, path, host, appName, targetServer) {
     var protocol= location.protocol === 'https:'  ? 'wss://' : 'ws://';
-    var uri = protocol + ip + ':' + port + '/' + encodeURIComponent(path) + '?method=connectArthas&id=' + agentId;
+    var uri = protocol + ip + ':' + port + '/' + encodeURIComponent(path) + '?method=connectArthas&host=' +host +'&appName=' + appName;
     if (targetServer != null) {
         uri = uri + '&targetServer=' + encodeURIComponent(targetServer);
     }
@@ -101,16 +105,17 @@ function initXterm (cols, rows) {
 function startConnect (silent) {
     var ip = $('#ip').val();
     var port = $('#port').val();
-    var agentId = $('#agentId').val();
+    var host = $('#host').val();
+    var appName = $('#appName').val();
     if (ip == '' || port == '') {
         alert('Ip or port can not be empty');
         return;
     }
-    if (agentId == '') {
+    if (appName == '') {
         if (silent) {
             return;
         }
-        alert('AgentId can not be empty');
+        alert('appName can not be empty');
         return;
     }
     if (ws != null) {
@@ -126,7 +131,7 @@ function startConnect (silent) {
     var targetServer = getUrlParam('targetServer');
 
     // init webSocket
-    initWs(ip, port, path, agentId, targetServer);
+    initWs(ip, port, path, host, appName, targetServer);
     ws.onerror = function () {
         ws.close();
         ws = null;
@@ -179,7 +184,7 @@ function disconnect () {
 }
 
 function updateArthasOutputLink() {
-    $('#arthasOutputA').prop("href", "proxy/" + $('#agentId').val() + "/arthas-output/")
+    $('#arthasOutputA').prop("href", "proxy/" + $('#appName').val() + "/arthas-output/")
 }
 
 /** full screen show **/

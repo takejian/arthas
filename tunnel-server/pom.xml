@@ -32,6 +32,11 @@
 	</dependencyManagement>
 
 	<dependencies>
+		<dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jsch</artifactId>
+		</dependency>
+
         <dependency>
             <groupId>com.taobao.arthas</groupId>
             <artifactId>arthas-common</artifactId>
@@ -117,6 +122,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-configuration-processor</artifactId>
 			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jsch.agentproxy.sshj</artifactId>
+			<version>0.0.9</version>
+			<scope>test</scope>
 		</dependency>
 
 	</dependencies>
