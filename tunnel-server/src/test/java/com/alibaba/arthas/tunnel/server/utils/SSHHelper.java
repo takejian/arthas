@@ -66,15 +66,15 @@ public class SSHHelper {
 
         StringBuffer cmdStr = new StringBuffer();
         cmdStr.append("#!/bin/bash\n"
-                     + "ssh -tt ").append("shijian@10.200.8.246").append(" << eeooff\n" +
-                        "if [ ! -f \"arthas-boot.jar\" ];then\n" +
-                        "  curl -O https://arthas.aliyun.com/arthas-boot.jar\n" +
-                        "fi\n" +
-                        "if [! -n \"sudo lsof -i tcp:8563\" ];then\n" +
-                        "  sudo java -jar /root/.arthas/lib/3.5.0/arthas/arthas-client.jar -c shutdown\n" +
-                        "fi\n").
-                append("ps -ef|grep ").append("push-server").append(".jar |grep -v grep | awk '{print \\$2}'|xargs -r sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.223.66:7777/ws' --attach-only\n").
-                append("exit\n").append("eeooff\n").append("echo done!\n");
+//                     + "ssh -tt ").append("shijian@10.200.8.246").append(" << eeooff\n" +
+//                        "if [ ! -f \"arthas-boot.jar\" ];then\n" +
+//                        "  curl -O https://arthas.aliyun.com/arthas-boot.jar\n" +
+//                        "fi\n" +
+//                        "if [! -n \"sudo lsof -i tcp:8563\" ];then\n" +
+//                        "  sudo java -jar /root/.arthas/lib/3.5.0/arthas/arthas-client.jar -c shutdown\n" +
+//                        "fi\n").
+//                append("ps -ef|grep ").append("push-server").append(".jar |grep -v grep | awk '{print \\$2}'|xargs -r sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.223.66:7777/ws' --attach-only\n").
+        ).append("exit\n").append("eeooff\n").append("echo done!\n");
 
         File file = new File("/tmp/link.sh");
         try {
@@ -88,13 +88,14 @@ public class SSHHelper {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        
+
 //        String cmd = "sh /Users/klyg/Documents/arthas/linkM.sh";
-        String cmd = "sh /tmp/link.sh";
+//        String cmd = "sh /tmp/link.sh";
+        String[] cmdarray = new String[] { "/bin/bash", "-c","echo $USER ","ls -a", "sh /tmp/link.sh"};
 
         BufferedReader br = null;
         try {
-            Process p = Runtime.getRuntime().exec(cmd);
+            Process p = Runtime.getRuntime().exec(cmdarray);
             br = new BufferedReader(new InputStreamReader(p.getInputStream()));
             StringBuilder sb = new StringBuilder();
             String line = null;

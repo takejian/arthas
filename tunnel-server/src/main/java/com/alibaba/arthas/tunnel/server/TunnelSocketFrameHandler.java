@@ -57,6 +57,11 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
                 connectArthas(ctx, parameters);
             } else if (MethodConstants.AGENT_REGISTER.equals(method)) { // form arthas agent, register
                 agentRegister(ctx, handshake, uri);
+                synchronized(tunnelServer){
+                    logger.info("tunnelServer notifyAll:{}", new Date());
+                    tunnelServer.notifyAll();
+                }
+
             }
             if (MethodConstants.OPEN_TUNNEL.equals(method)) { // from arthas agent open tunnel
                 String clientConnectionId = parameters.getFirst(URIConstans.CLIENT_CONNECTION_ID);
@@ -111,7 +116,8 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
 
         StringBuffer cmdStr = new StringBuffer();
         cmdStr.append("#!/bin/bash\n"
-                + "ssh -tt ").append("shijian@").append(host).append(" << eeooff\n" +
+                + "ssh -tt -i /home/shijian/.ssh/id_rsa ").append("arthastest@").append(host).append(" << eeooff\n" +
+//                + "ssh -t ").append("root@").append(host).append(" << eeooff\n" +
                 "if [ ! -f \"arthas-boot.jar\" ];then\n" +
                 "  curl -O https://arthas.aliyun.com/arthas-boot.jar\n" +
                 "fi\n").
@@ -119,11 +125,12 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
                 append("PORT=\\$(sudo lsof -i tcp:8563|grep -v COMMAND | awk '{print \\$2}')\n").
                 append("if [ \"\\$PID\" != \"\\$PORT\" ];then\n" +
                 "  sudo java -jar /root/.arthas/lib/3.5.0/arthas/arthas-client.jar -c shutdown\n").
-                append("  sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.220.222:7777/ws' --attach-only \\$PID\n").
+                append("  sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://10.200.8.246:7777/ws' --app-name ").
+                append(appName).append(" --attach-only \\$PID\n").
                 append("fi\n").
 //                append("  ps -ef|grep ").append(appName).append(".jar |grep -v grep | awk '{print \\$2}'|xargs -r sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.220.222:7777/ws' --attach-only\n").
                 append("exit\n").append("eeooff\n").append("echo done!\n");
-        //是否需要重复杀死进程
+        //是否需要重复杀死进程  172.28.220.222
         File file = new File("/tmp/link.sh");
         try {
             file.delete();
@@ -136,18 +143,21 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
         } catch (IOException e) {
             e.printStackTrace();
         }
-        String cmd = "sh /tmp/link.sh";
+//        String cmd = "sh /tmp/link.sh";
+        //不能执行多条命令吗？？ 还是只能执行有第一条有返回值后，后续不执行？ 不能执行多条命令
+        String[] cmdarray = new String[] { "/bin/bash", "-c", "sh /tmp/link.sh"};
         BufferedReader br = null;
         try {
-            Process p = Runtime.getRuntime().exec(cmd);
+            Process p = Runtime.getRuntime().exec(cmdarray);
             br = new BufferedReader(new InputStreamReader(p.getInputStream()));
-//            StringBuilder sb = new StringBuilder();
-//            String line = null;
-//            while ((line = br.readLine()) != null) {
-//                sb.append(line);
-//            }
+            StringBuilder sb = new StringBuilder();
+            String line = null;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
 //            System.out.println("sb:" + sb.toString());
-            return br.readLine().toString();
+            logger.info("shell rsp:{}" ,sb.toString());
+            return sb.toString();
         } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -162,17 +172,6 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
         List<String> appName = parameters.getOrDefault("appName", Collections.emptyList());
         List<String> agentId = parameters.getOrDefault("host", Collections.emptyList());
 
-        // ssh目标服务器，然后启动arthas进程并绑定appName
-        String rsp = autoInstallArthas(agentId.get(0), appName.get(0));
-        if(rsp == null){
-            logger.error("arthas autoinstall fail");
-            throw new IllegalArgumentException("arthas autoinstall fail");
-        }
-        try{
-            Thread.sleep(20000);
-        }catch (Exception e){
-            logger.error("Thread.sleep Error");
-        }
 
         if (agentId.isEmpty()) {
             logger.error("arthas agent id can not be null, parameters: {}", parameters);
@@ -183,6 +182,37 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
 
         Optional<AgentInfo> findAgent = tunnelServer.findAgent(agentId.get(0));
 
+        if (!findAgent.isPresent() || (findAgent.isPresent() && !appName.get(0).equals(findAgent.get().getAppName()))) {
+            // ssh目标服务器，然后启动arthas进程并绑定appName
+            String rsp = autoInstallArthas(agentId.get(0), appName.get(0));
+            if(rsp == null){
+                logger.error("arthas autoinstall fail");
+                throw new IllegalArgumentException("arthas autoinstall fail");
+            }
+
+            // 如果该方法能够在给定的时间段之内得到结果，那么将结果立刻返回，反之，超时返回默认结果。
+            try{
+                logger.info("Thread.sleep tunnelServer begin:{}", new Date());
+                long timeout = 20000;
+                long timeoutExpires = System.currentTimeMillis() + timeout;
+
+                synchronized(tunnelServer){
+                    tunnelServer.wait(timeout);
+                    if(System.currentTimeMillis() >= timeoutExpires) {
+                        // Get out of loop
+                        logger.error("cmd timeout, please reconnect !!");
+                        return;
+                    }else {
+                        findAgent = tunnelServer.findAgent(agentId.get(0));
+                    }
+                }
+                logger.info("Thread.sleep tunnelServer end:{}", new Date());
+
+//            Thread.sleep(20000);
+            }catch (Exception e){
+                logger.error("Thread.sleep Error");
+            }
+        }
         if (findAgent.isPresent()) {
 
             agentId = new ArrayList<String>();
@@ -325,6 +355,7 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
             info.setArthasVersion(arthasVersion);
         }
         info.setAgentId(id);
+        info.setAppName(appName);
 //        tunnelServer.addAgent(id, info);
         tunnelServer.addAgent(info.getHost(), info);
         ctx.channel().closeFuture().addListener(new GenericFutureListener<Future<? super Void>>() {
