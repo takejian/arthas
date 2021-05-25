@@ -55,7 +55,7 @@ public class ArthasBanner {
             }
 
             StringBuilder sb = new StringBuilder();
-            String[] LOGOS = new String[6];
+            String[] LOGOS = new String[10];
             int i = 0, j = 0;
             for (String line : logoText.split("\n")) {
                 sb.append(line);
@@ -68,14 +68,17 @@ public class ArthasBanner {
             }
 
             TableElement logoTable = new TableElement();
-            logoTable.row(label(LOGOS[0]).style(Decoration.bold.fg(Color.red)),
+                logoTable.row(label(LOGOS[0]).style(Decoration.bold.fg(Color.red)),
                     label(LOGOS[1]).style(Decoration.bold.fg(Color.yellow)),
                     label(LOGOS[2]).style(Decoration.bold.fg(Color.cyan)),
                     label(LOGOS[3]).style(Decoration.bold.fg(Color.magenta)),
                     label(LOGOS[4]).style(Decoration.bold.fg(Color.green)),
-                    label(LOGOS[5]).style(Decoration.bold.fg(Color.blue)));
+                    label(LOGOS[5]).style(Decoration.bold.fg(Color.blue)),
+                    label(LOGOS[6]).style(Decoration.bold.fg(Color.red)),
+                    label(LOGOS[7]).style(Decoration.bold.fg(Color.blue)));
             LOGO = RenderUtil.render(logoTable);
         } catch (Throwable e) {
+            logger.error("log Error: {},{}", e.getMessage());
             e.printStackTrace();
         }
     }
@@ -121,7 +124,7 @@ public class ArthasBanner {
             table.row(entry.getKey(), entry.getValue());
         }
 
-        return logo() + "\n" + RenderUtil.render(table);
+        return logo() + "                                                   base on arthas\n" + RenderUtil.render(table);
     }
 
     static String latestVersion() {

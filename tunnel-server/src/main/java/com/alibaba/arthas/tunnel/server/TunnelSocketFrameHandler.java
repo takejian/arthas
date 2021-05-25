@@ -116,16 +116,17 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
 
         StringBuffer cmdStr = new StringBuffer();
         cmdStr.append("#!/bin/bash\n"
-                + "ssh -tt -i /home/shijian/.ssh/id_rsa ").append("arthastest@").append(host).append(" << eeooff\n" +
+                + "scp -i /home/shijian/.ssh/id_rsa  /home/shijian/arthas.zip ").append("arthastest@").append(host).append(":~\n").
+                append("ssh -tt -i /home/shijian/.ssh/id_rsa ").append("arthastest@").append(host).append(" << eeooff\n" +
 //                + "ssh -t ").append("root@").append(host).append(" << eeooff\n" +
-                "if [ ! -f \"arthas-boot.jar\" ];then\n" +
-                "  curl -O https://arthas.aliyun.com/arthas-boot.jar\n" +
+                "if [ ! -d \"arthas\" ];then\n" +
+                "  unzip arthas.zip\n" +
                 "fi\n").
                 append("PID=\\$(ps -ef|grep ").append(appName).append(".jar |grep -v grep | awk '{print \\$2}')\n").
                 append("PORT=\\$(sudo lsof -i tcp:8563|grep -v COMMAND | awk '{print \\$2}')\n").
                 append("if [ \"\\$PID\" != \"\\$PORT\" ];then\n" +
-                "  sudo java -jar /root/.arthas/lib/3.5.0/arthas/arthas-client.jar -c shutdown\n").
-                append("  sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://10.200.8.246:7777/ws' --app-name ").
+                "  sudo java -jar arthas/arthas-client.jar -c shutdown\n").
+                append("  sudo java -jar arthas/arthas-boot.jar  --tunnel-server 'ws://10.200.8.246:7777/ws' --app-name ").
                 append(appName).append(" --attach-only \\$PID\n").
                 append("fi\n").
 //                append("  ps -ef|grep ").append(appName).append(".jar |grep -v grep | awk '{print \\$2}'|xargs -r sudo java -jar arthas-boot.jar --use-version 3.5.0  --tunnel-server 'ws://172.28.220.222:7777/ws' --attach-only\n").
@@ -191,26 +192,26 @@ public class TunnelSocketFrameHandler extends SimpleChannelInboundHandler<WebSoc
             }
 
             // 如果该方法能够在给定的时间段之内得到结果，那么将结果立刻返回，反之，超时返回默认结果。
+            long timeout = 25000;
+            long timeoutExpires = System.currentTimeMillis() + timeout;
+
             try{
                 logger.info("Thread.sleep tunnelServer begin:{}", new Date());
-                long timeout = 20000;
-                long timeoutExpires = System.currentTimeMillis() + timeout;
-
                 synchronized(tunnelServer){
                     tunnelServer.wait(timeout);
-                    if(System.currentTimeMillis() >= timeoutExpires) {
-                        // Get out of loop
-                        logger.error("cmd timeout, please reconnect !!");
-                        return;
-                    }else {
-                        findAgent = tunnelServer.findAgent(agentId.get(0));
-                    }
                 }
                 logger.info("Thread.sleep tunnelServer end:{}", new Date());
-
 //            Thread.sleep(20000);
             }catch (Exception e){
                 logger.error("Thread.sleep Error");
+            }
+            //todo 非同类，并发下会提前唤醒，登录到错误的session， 可以实现安装按钮。 或者sleep查询等待。
+            if(System.currentTimeMillis() >= timeoutExpires) {
+                // Get out of loop
+                logger.error("MGTV DEBUG on based arthas install timeout, please first disconnect ,then reconnect !!");
+                throw new IllegalArgumentException("MGTV DEBUG on based arthas install timeout, please first disconnect ,then reconnect !!");
+            }else {
+                findAgent = tunnelServer.findAgent(agentId.get(0));
             }
         }
         if (findAgent.isPresent()) {
